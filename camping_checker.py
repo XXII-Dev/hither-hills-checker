@@ -1,4 +1,5 @@
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -51,21 +52,18 @@ def check_availability():
 
         print(f"[{get_timestamp()}] ⏳ Waiting for page to load...")
 
-        # Wait for the page to load dynamic content (adjust selector as needed)
-        WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "availability"))
-        )
+        # Wait until the body has some rendered text (JS has executed)
+        try:
+            WebDriverWait(driver, 30).until(
+                lambda d: len(d.find_element(By.TAG_NAME, "body").text.strip()) > 100
+            )
+        except TimeoutException:
+            print(f"[{get_timestamp()}] ⚠️  Body text didn't populate in 30s — page may be blocked or slow. Continuing anyway.")
 
-        print(f"[{get_timestamp()}] ✅ Page loaded successfully")
+        # Extra settle time for async widgets
+        time.sleep(3)
 
-        # Try multiple possible selectors for availability info
-        selectors_to_try = [
-            (By.CLASS_NAME, "section-status"),
-            (By.CLASS_NAME, "availability"),
-            (By.CLASS_NAME, "site-availability"),
-            (By.CSS_SELECTOR, "[class*='avail']"),
-            (By.CSS_SELECTOR, "[class*='status']"),
-        ]
+        print(f"[{get_timestamp()}] ✅ Page loaded")
 
         page_text = driver.find_element(By.TAG_NAME, "body").text
 
@@ -89,13 +87,24 @@ def check_availability():
             print(f"[{get_timestamp()}] 😞 No sites available")
         else:
             print(f"[{get_timestamp()}] ❓ Could not find availability info")
-            print(f"[{get_timestamp()}] 💾 Saving page source for debugging...")
+            print(f"[{get_timestamp()}] 💾 Saving page source + text for debugging...")
             with open("debug_page.html", "w", encoding="utf-8") as f:
                 f.write(driver.page_source)
-            print(f"[{get_timestamp()}] 💾 Saved to debug_page.html - check this file to find the right selector")
+            with open("debug_page.txt", "w", encoding="utf-8") as f:
+                f.write(page_text)
+            print(f"[{get_timestamp()}] 💾 Saved debug_page.html and debug_page.txt")
 
+    except TimeoutException:
+        print(f"[{get_timestamp()}] ❌ Timeout waiting for page to load")
+        if driver:
+            try:
+                with open("debug_page.html", "w", encoding="utf-8") as f:
+                    f.write(driver.page_source)
+                print(f"[{get_timestamp()}] 💾 Saved debug_page.html for inspection")
+            except Exception:
+                pass
     except Exception as e:
-        print(f"[{get_timestamp()}] ❌ Error: {e}")
+        print(f"[{get_timestamp()}] ❌ Error: {type(e).__name__}: {e}")
     finally:
         if driver:
             driver.quit()
