@@ -1,0 +1,25 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+*.iml
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Logs / misc
+*.log
+
+# Agent caches
+.claude/
+.serena/
+
+# JS
+**/node_modules/
+**/.next/
